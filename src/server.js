@@ -26,6 +26,6 @@ mongoose.connect("mongodb+srv://test:test@cluster0.vzmbp.mongodb.net/")
     .then(() => console.log('MongoDB connection established'))
     .catch(err => console.log('MongoDB connection error:', err));
 
-app.listen(PORT, () => {
+app.listen(process.env.PORT || PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
