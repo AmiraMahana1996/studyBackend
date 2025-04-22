@@ -29,8 +29,9 @@
 
 // routes/flashcardRoutes.js
 const express = require('express');
+const multer = require('multer');
 const flashcardController = require('../controllers/flashcardController');
-
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
@@ -55,4 +56,10 @@ router.route('/:id')
 router.route('/:id/response')
   .post(flashcardController.recordResponse);
 
+
+  router.post(
+    '/import-excel',
+    upload.single('excelFile'), // 'excelFile' is the field name for the uploaded file
+    flashcardController.importFlashcardsFromExcel
+  );
 module.exports = router;

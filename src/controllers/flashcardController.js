@@ -176,7 +176,7 @@
 
 
 // __________________________________
-
+const xlsx = require('xlsx');
 // controllers/flashcardController.js
 const Flashcard = require('../models/flashcardModel');
 
@@ -192,7 +192,7 @@ exports.getAllFlashcards = async (req, res, next) => {
 // Get flashcards for study (without user context)
 exports.getFlashcardsForStudy = async (req, res, next) => {
   const fiveMinutesAgo = new Date();
-  fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+  fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 30);
 
   let query = {
     $or: [
@@ -207,7 +207,6 @@ exports.getFlashcardsForStudy = async (req, res, next) => {
 
   const flashcards = await Flashcard.find(query)
     .populate('topic', 'name')
-    .limit(20)
     .sort({ lastReviewed: 1, reviewCount: 1 });
 
   res.status(200).json(flashcards);
@@ -385,4 +384,81 @@ exports.getFlashcardStats = async (req, res, next) => {
     difficultyStats,
     topicStats,
   });
+};
+
+//importFlashcardsFromExcel
+exports.importFlashcardsFromExcel = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please upload an Excel file'
+      });
+    }
+console.log(req.file)
+    // Parse the Excel file directly from the buffer
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    
+    // Assume the first sheet contains flashcard data
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    
+    // Convert the worksheet to JSON
+    const flashcardsData = xlsx.utils.sheet_to_json(worksheet);
+    
+    if (!flashcardsData || flashcardsData.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'No data found in the Excel file'
+      });
+    }
+
+    // Array to store created flashcards
+    const createdFlashcards = [];
+    const errors = [];
+
+    // Process each row in the Excel file
+    for (const [index, flashcardData] of flashcardsData.entries()) {
+      // Validate required fields
+      if (!flashcardData.question || !flashcardData.answer) {
+        errors.push(`Row ${index + 1}: Missing required fields (question or answer)`);
+        continue;
+      }
+
+      try {
+        // Create a new flashcard object
+        const newFlashcardData = {
+          question: flashcardData.question,
+          answer: flashcardData.answer,
+          topic: flashcardData.topicId || null,
+          difficulty: flashcardData.difficulty || 'medium',
+          // Initialize other fields with default values
+          reviewCount: 0,
+          correctCount: 0,
+          incorrectCount: 0,
+          lastReviewed: null
+        };
+
+        // Create the flashcard in the database
+        const newFlashcard = await Flashcard.create(newFlashcardData);
+        createdFlashcards.push(newFlashcard);
+      } catch (err) {
+        errors.push(`Row ${index + 1}: ${err.message}`);
+      }
+    }
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        flashcardsCreated: createdFlashcards.length,
+        flashcards: createdFlashcards,
+        errors: errors.length > 0 ? errors : undefined
+      },
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err.message
+    });
+  }
 };
