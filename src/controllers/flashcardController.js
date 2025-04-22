@@ -191,12 +191,12 @@ exports.getAllFlashcards = async (req, res, next) => {
 
 // Get flashcards for study (without user context)
 exports.getFlashcardsForStudy = async (req, res, next) => {
-  const fiveMinutesAgo = new Date();
-  fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 30);
+  const oneHourAgo = new Date();
+  oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
   let query = {
     $or: [
-      { lastReviewed: { $lt: fiveMinutesAgo } },
+      { lastReviewed: { $lt: oneHourAgo } },
       { lastReviewed: null },
     ],
   };
